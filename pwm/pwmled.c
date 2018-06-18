@@ -8,7 +8,7 @@
 #define I2C_DEV 			"/dev/i2c-1"
 #define CLOCK_FREQ		25000000.0
 #define PCA_ADDR			0x40
-#define LED_STEP			50
+#define LED_STEP			200
 
 // Register Addr
 #define MODE1					0x00
@@ -65,7 +65,7 @@ int reg_read16(unsigned char addr)
 	temp = 0xff & buffer[0];
 	reg_read8(addr+1);
 	temp |= (buffer[0] <<8);
-	printf("addr=0x%x, data=0x%x\n", addr, temp);
+	printf("addr=0x%x, data=%d\n", addr, temp);
 	 
 	return 0;	
 }
@@ -113,9 +113,9 @@ int led_on(unsigned short value)
 			if(value< 3800)
 			{
 				value += LED_STEP;
-				reg_write16(LED15_ON_L, value);
+				reg_write16(LED15_ON_L, time_val - value);
 				reg_read16(LED15_ON_L);
-				reg_write16(LED15_OFF_L, time_val - value);
+				reg_write16(LED15_OFF_L, time_val);
 				reg_read16(LED15_OFF_L);
 			}
 			else
@@ -128,9 +128,9 @@ int led_on(unsigned short value)
 			if(value > LED_STEP)
 			{
 				value -= LED_STEP;
-				reg_write16(LED15_ON_L, value);
+				reg_write16(LED15_ON_L, time_val - value);
 				reg_read16(LED15_ON_L);
-				reg_write16(LED15_OFF_L, time_val - value);
+				reg_write16(LED15_OFF_L, time_val);
 				reg_read16(LED15_OFF_L);
 			}
 			else
