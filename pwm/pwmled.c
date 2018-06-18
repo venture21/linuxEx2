@@ -36,7 +36,7 @@ int reg_read8(unsigned char addr)
 	{
 		printf("Failed to read from the i2c bus\n");
 	}
-	printf("addr[%d] = %d\n", addr, buffer[0]);
+	//printf("addr[%d] = %d\n", addr, buffer[0]);
 	
 	return 0;
 }
@@ -65,7 +65,7 @@ int reg_read16(unsigned char addr)
 	temp = 0xff & buffer[0];
 	reg_read8(addr+1);
 	temp |= (buffer[0] <<8);
-	printf("addr=0x%x, data=%d\n", addr, temp);
+	//printf("addr=0x%x, data=%d\n", addr, temp);
 	 
 	return 0;	
 }
@@ -143,6 +143,47 @@ int led_on(unsigned short value)
 				
 }
 
+int blinkLED(void)
+{
+	int i;
+	unsigned short value;
+	unsigned short max=4095;
+	char key;
+	while(1)
+	{
+		//printf("key insert :");
+		//key=getchar();
+		{
+			for(i=0;i<max;i+=5)
+			{
+				if(i>1024)
+					i+=5;
+				value = i;
+				reg_write16(LED15_ON_L, max - value);
+				reg_read16(LED15_ON_L);
+				reg_write16(LED15_OFF_L, max);
+				reg_read16(LED15_OFF_L);
+				usleep(5);
+			}
+			
+			for(i=0;i<max;i+=5)
+			{
+				if(i<3072)
+					i+=5;
+				value = i;
+				reg_write16(LED15_ON_L, value);
+				reg_read16(LED15_ON_L);
+				reg_write16(LED15_OFF_L, max);
+				reg_read16(LED15_OFF_L);
+				usleep(5);
+			}
+		
+		}
+	}
+	return 0;	
+				
+}
+
 
 int main(void)
 {
@@ -160,7 +201,7 @@ int main(void)
 	}	
 	pca9685_restart();
 	pca9685_freq();
-	led_on(value);
+	blinkLED();
 	
 	return 0;
 }
