@@ -9,6 +9,14 @@
 #define CLOCK_FREQ		25000000.0
 #define PCA_ADDR			0x40
 #define LED_STEP			200
+#define PARAM_M90		205
+#define PARAM_0			307
+#define PARAM_P90		410
+
+#define ANGLE_M90		0
+#define ANGLE_0			1
+#define ANGLE_P90		2
+
 
 // Register Addr
 #define MODE1					0x00
@@ -159,16 +167,18 @@ int led_on(unsigned short value)
 				
 }
 
+void servoOFF(void)
+{
+		reg_write8(MODE1, 0x10);				// OP : OSC OFF
+}
+
 int blinkLED(void)
 {
 	int i;
 	unsigned short value;
 	unsigned short max=4095;
-	char key;
 	while(1)
 	{
-		//printf("key insert :");
-		//key=getchar();
 		{
 			for(i=0;i<max;i+=5)
 			{
@@ -193,51 +203,49 @@ int blinkLED(void)
 				reg_read16(LED15_OFF_L);
 				usleep(20);
 			}
-		
 		}
 	}
 	return 0;	
 				
 }
 
-int testServo(int ch)
+int testServo(int angle)
 {
-	int i;
-	//2ms
-	int value = 205;
-	for(i=value;i<410;i++)
+	switch(angle)
 	{
-		if(ch==1)
-		{
+		case ANGLE_M90:
 			reg_write16(LED0_ON_L, 0);
 			reg_read16(LED0_ON_L);
-			reg_write16(LED0_OFF_L, value);
+			reg_write16(LED0_OFF_L, PARAM_M90);
 			reg_read16(LED0_OFF_L);
-
-		}
-		if(ch==2)
-		{
-			reg_write16(LED1_ON_L, 0);
-			reg_read16(LED1_ON_L);
-			reg_write16(LED1_OFF_L, value);
-			reg_read16(LED1_OFF_L);
-
-		}		
+			break;
+			
+		case ANGLE_0:
+			reg_write16(LED0_ON_L, 0);
+			reg_read16(LED0_ON_L);
+			reg_write16(LED0_OFF_L, PARAM_0);
+			reg_read16(LED0_OFF_L);
+			break;
+			
+		case ANGLE_P90:
+			reg_write16(LED0_ON_L, 0);
+			reg_read16(LED0_ON_L);
+			reg_write16(LED0_OFF_L, PARAM_P90);
+			reg_read16(LED0_OFF_L);
+			break;
 		
-		usleep(100000);
-	}
-	return 0;				
+		default:
+			reg_write16(LED0_ON_L, 0);
+			reg_read16(LED0_ON_L);
+			reg_write16(LED0_OFF_L, PARAM_0);
+			reg_read16(LED0_OFF_L);
+	}		
+	return 0;
 }
-
-
-
-
-
-
-
-
+			
 int main(void)
 {
+	int i;
 	unsigned short value=2047;
 	if((fd=open(I2C_DEV, O_RDWR))<0)
 	{
@@ -252,13 +260,24 @@ int main(void)
 	}	
 	pca9685_restart();
 	pca9685_freq();
-	testServo(1);
-	/*
-	usleep(100000);
-	SF0180_0();
-	usleep(100000);
-	SF0180_90();
-	*/
+
+	for(i=0;i<5;i++)
+	{
+		testServo(ANGLE_M90);
+		sleep(1);
+
+		testServo(ANGLE_0);
+		sleep(1);
+		
+		testServo(ANGLE_P90);
+		sleep(1);
+		
+		testServo(ANGLE_0);
+		sleep(1);
+	}
+	
+	servoOFF();
+
 	return 0;
 }
 
