@@ -13,10 +13,26 @@
 // Register Addr
 #define MODE1					0x00
 #define MODE2					0x01
+#define LED0_ON_L			0x06
+#define LED0_ON_H			0x07
+#define LED0_OFF_L		0x08
+#define LED0_OFF_H		0x09
+
+#define LED1_ON_L			0x0A
+#define LED1_ON_H			0x0B
+#define LED1_OFF_L		0x0C
+#define LED1_OFF_H		0x0D
+
 #define LED15_ON_L		0x42
 #define LED15_ON_H		0x43
 #define LED15_OFF_L		0x44
 #define LED15_OFF_H		0x45
+#define ALL_LED_ON_L    0xFA
+#define ALL_LED_ON_H	0xFB
+#define ALL_LED_OFF_L	0xFC
+#define ALL_LED_OFF_H	0xFD
+
+
 #define PRE_SCALE			0xFE
 
 int fd;
@@ -83,20 +99,20 @@ int pca9685_restart(void)
 	int length;
 	
 	reg_write8(MODE1, 0x00);
-	reg_write8(MODE2, 0x04);
+	reg_write8(MODE2, 0x00);
 	return 0;
 }
 
 int pca9685_freq()
 {
-	int length = 2, freq = 10;
+	int length = 2, freq = 50;
 	uint8_t pre_val = (CLOCK_FREQ / 4096 / freq) -1; 
 	printf("prescale_val = %d\n", pre_val);
 	 
 	reg_write8(MODE1, 0x10);				// OP : OSC OFF
 	reg_write8(PRE_SCALE, pre_val);	// OP : WRITE PRE_SCALE VALUE
 	reg_write8(MODE1, 0x80);				// OP : RESTART
-	reg_write8(MODE2, 0x04);				// OP : TOTEM POLE 
+	reg_write8(MODE2, 0x00);				// OP : TOTEM POLE 
 	return 0;
 }
 
@@ -157,25 +173,25 @@ int blinkLED(void)
 			for(i=0;i<max;i+=5)
 			{
 				if(i>1024)
-					i+=5;
+					i+=15;
 				value = i;
 				reg_write16(LED15_ON_L, max - value);
 				reg_read16(LED15_ON_L);
 				reg_write16(LED15_OFF_L, max);
 				reg_read16(LED15_OFF_L);
-				usleep(5);
+				usleep(20);
 			}
 			
 			for(i=0;i<max;i+=5)
 			{
 				if(i<3072)
-					i+=5;
+					i+=15;
 				value = i;
 				reg_write16(LED15_ON_L, value);
 				reg_read16(LED15_ON_L);
 				reg_write16(LED15_OFF_L, max);
 				reg_read16(LED15_OFF_L);
-				usleep(5);
+				usleep(20);
 			}
 		
 		}
@@ -183,6 +199,41 @@ int blinkLED(void)
 	return 0;	
 				
 }
+
+int testServo(int ch)
+{
+	int i;
+	//2ms
+	int value = 205;
+	for(i=value;i<410;i++)
+	{
+		if(ch==1)
+		{
+			reg_write16(LED0_ON_L, 0);
+			reg_read16(LED0_ON_L);
+			reg_write16(LED0_OFF_L, value);
+			reg_read16(LED0_OFF_L);
+
+		}
+		if(ch==2)
+		{
+			reg_write16(LED1_ON_L, 0);
+			reg_read16(LED1_ON_L);
+			reg_write16(LED1_OFF_L, value);
+			reg_read16(LED1_OFF_L);
+
+		}		
+		
+		usleep(100000);
+	}
+	return 0;				
+}
+
+
+
+
+
+
 
 
 int main(void)
@@ -201,8 +252,13 @@ int main(void)
 	}	
 	pca9685_restart();
 	pca9685_freq();
-	blinkLED();
-	
+	testServo(1);
+	/*
+	usleep(100000);
+	SF0180_0();
+	usleep(100000);
+	SF0180_90();
+	*/
 	return 0;
 }
 
