@@ -4,44 +4,24 @@
 #include <linux/i2c-dev.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <wiringPi.h>
+#include "pca9685.h"
 
-#define I2C_DEV 			"/dev/i2c-1"
+#define I2C_DEV 		"/dev/i2c-1"
 #define CLOCK_FREQ		25000000.0
-#define PCA_ADDR			0x40
-#define LED_STEP			200
-#define PARAM_M90		205
+#define PCA_ADDR		0x40
+#define LED_STEP		200
+
+#define PARAM_M90		100	
 #define PARAM_0			307
-#define PARAM_P90		410
+#define PARAM_P90		510
 
 #define ANGLE_M90		0
 #define ANGLE_0			1
 #define ANGLE_P90		2
 
 
-// Register Addr
-#define MODE1					0x00
-#define MODE2					0x01
-#define LED0_ON_L			0x06
-#define LED0_ON_H			0x07
-#define LED0_OFF_L		0x08
-#define LED0_OFF_H		0x09
 
-#define LED1_ON_L			0x0A
-#define LED1_ON_H			0x0B
-#define LED1_OFF_L		0x0C
-#define LED1_OFF_H		0x0D
-
-#define LED15_ON_L		0x42
-#define LED15_ON_H		0x43
-#define LED15_OFF_L		0x44
-#define LED15_OFF_H		0x45
-#define ALL_LED_ON_L    0xFA
-#define ALL_LED_ON_H	0xFB
-#define ALL_LED_OFF_L	0xFC
-#define ALL_LED_OFF_H	0xFD
-
-
-#define PRE_SCALE			0xFE
 
 int fd;
 unsigned char buffer[3] = {0};
@@ -107,20 +87,20 @@ int pca9685_restart(void)
 	int length;
 	
 	reg_write8(MODE1, 0x00);
-	reg_write8(MODE2, 0x00);
+	reg_write8(MODE2, 0x04);
 	return 0;
 }
 
-int pca9685_freq()
+int pca9685_freq(unsigned int freq)
 {
-	int length = 2, freq = 50;
+	int length = 2;
 	uint8_t pre_val = (CLOCK_FREQ / 4096 / freq) -1; 
 	printf("prescale_val = %d\n", pre_val);
 	 
 	reg_write8(MODE1, 0x10);				// OP : OSC OFF
 	reg_write8(PRE_SCALE, pre_val);	// OP : WRITE PRE_SCALE VALUE
 	reg_write8(MODE1, 0x80);				// OP : RESTART
-	reg_write8(MODE2, 0x00);				// OP : TOTEM POLE 
+	reg_write8(MODE2, 0x04);				// OP : TOTEM POLE 
 	return 0;
 }
 
@@ -243,9 +223,67 @@ int testServo(int angle)
 	return 0;
 }
 			
+int MoveForward(unsigned int freq)
+{
+	
+	digitalWrite (0, LOW) ;
+	digitalWrite (2, LOW) ;
+	
+	reg_write16(LED4_ON_L, 0);
+	reg_read16(LED4_ON_L);
+	reg_write16(LED4_OFF_L, 4095);
+	reg_read16(LED4_OFF_L);
+
+	reg_write16(LED5_ON_L, 0);
+	reg_read16(LED5_ON_L);
+	reg_write16(LED5_OFF_L, 4095);
+	reg_read16(LED5_OFF_L);
+}
+
+int MoveBackward(unsigned int freq)
+{
+	
+	digitalWrite (0, HIGH) ;
+	digitalWrite (2, HIGH) ;
+	
+	reg_write16(LED4_ON_L, 0);
+	reg_read16(LED4_ON_L);
+	reg_write16(LED4_OFF_L, 4095);
+	reg_read16(LED4_OFF_L);
+
+	reg_write16(LED5_ON_L, 0);
+	reg_read16(LED5_ON_L);
+	reg_write16(LED5_OFF_L, 4095);
+	reg_read16(LED5_OFF_L);
+}
+
+int Stop()
+{
+	
+	//digitalWrite (0, HIGH) ;
+	//digitalWrite (2, HIGH) ;
+	
+	reg_write16(LED4_ON_L, 4095);
+	reg_read16(LED4_ON_L);
+	reg_write16(LED4_OFF_L, 4095);
+	reg_read16(LED4_OFF_L);
+
+	reg_write16(LED5_ON_L, 4095);
+	reg_read16(LED5_ON_L);
+	reg_write16(LED5_OFF_L, 4095);
+	reg_read16(LED5_OFF_L);
+
+}
+
 int main(void)
 {
 	int i;
+	int freq=140;
+	
+	wiringPiSetup();
+	
+	pinMode (0, OUTPUT) ;		// BCM GPIO17
+	pinMode (2, OUTPUT) ;		// BCM GPIO27
 	unsigned short value=2047;
 	if((fd=open(I2C_DEV, O_RDWR))<0)
 	{
@@ -259,24 +297,19 @@ int main(void)
 		return -1;
 	}	
 	pca9685_restart();
-	pca9685_freq();
+	pca9685_freq(freq);
 
-	for(i=0;i<5;i++)
-	{
-		testServo(ANGLE_M90);
-		sleep(1);
+	freq = 3000;
 
-		testServo(ANGLE_0);
-		sleep(1);
-		
-		testServo(ANGLE_P90);
-		sleep(1);
-		
-		testServo(ANGLE_0);
-		sleep(1);
-	}
+	MoveForward(freq);
+	sleep(2);
+	Stop();
+	usleep(100000);
+	MoveBackward(freq);
+	sleep(2);
+	Stop();
 	
-	servoOFF();
+	//servoOFF();
 
 	return 0;
 }
