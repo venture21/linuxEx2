@@ -118,9 +118,7 @@ int led_on(unsigned short value)
 			{
 				value += LED_STEP;
 				reg_write16(LED15_ON_L, time_val - value);
-				reg_read16(LED15_ON_L);
 				reg_write16(LED15_OFF_L, time_val);
-				reg_read16(LED15_OFF_L);
 			}
 			else
 			{
@@ -133,9 +131,7 @@ int led_on(unsigned short value)
 			{
 				value -= LED_STEP;
 				reg_write16(LED15_ON_L, time_val - value);
-				reg_read16(LED15_ON_L);
 				reg_write16(LED15_OFF_L, time_val);
-				reg_read16(LED15_OFF_L);
 			}
 			else
 			{
@@ -166,9 +162,7 @@ int blinkLED(void)
 					i+=15;
 				value = i;
 				reg_write16(LED15_ON_L, max - value);
-				reg_read16(LED15_ON_L);
 				reg_write16(LED15_OFF_L, max);
-				reg_read16(LED15_OFF_L);
 				usleep(20);
 			}
 			
@@ -178,9 +172,7 @@ int blinkLED(void)
 					i+=15;
 				value = i;
 				reg_write16(LED15_ON_L, value);
-				reg_read16(LED15_ON_L);
 				reg_write16(LED15_OFF_L, max);
-				reg_read16(LED15_OFF_L);
 				usleep(20);
 			}
 		}
@@ -195,84 +187,57 @@ int testServo(int angle)
 	{
 		case ANGLE_M90:
 			reg_write16(LED0_ON_L, 0);
-			reg_read16(LED0_ON_L);
 			reg_write16(LED0_OFF_L, PARAM_M90);
-			reg_read16(LED0_OFF_L);
 			break;
 			
 		case ANGLE_0:
 			reg_write16(LED0_ON_L, 0);
-			reg_read16(LED0_ON_L);
 			reg_write16(LED0_OFF_L, PARAM_0);
-			reg_read16(LED0_OFF_L);
 			break;
 			
 		case ANGLE_P90:
 			reg_write16(LED0_ON_L, 0);
-			reg_read16(LED0_ON_L);
 			reg_write16(LED0_OFF_L, PARAM_P90);
-			reg_read16(LED0_OFF_L);
 			break;
 		
 		default:
 			reg_write16(LED0_ON_L, 0);
-			reg_read16(LED0_ON_L);
 			reg_write16(LED0_OFF_L, PARAM_0);
-			reg_read16(LED0_OFF_L);
 	}		
 	return 0;
 }
 			
-int MoveForward(unsigned int freq)
+int MoveForward(unsigned short speed)
 {
-	
+	// Set CW
 	digitalWrite (0, LOW) ;
 	digitalWrite (2, LOW) ;
 	
 	reg_write16(LED4_ON_L, 0);
-	reg_read16(LED4_ON_L);
-	reg_write16(LED4_OFF_L, 4095);
-	reg_read16(LED4_OFF_L);
-
 	reg_write16(LED5_ON_L, 0);
-	reg_read16(LED5_ON_L);
+	reg_write16(LED4_OFF_L, 4095);
 	reg_write16(LED5_OFF_L, 4095);
-	reg_read16(LED5_OFF_L);
+
 }
 
-int MoveBackward(unsigned int freq)
+void MoveBackward(unsigned short speed)
 {
-	
+	// Set CCW
 	digitalWrite (0, HIGH) ;
 	digitalWrite (2, HIGH) ;
 	
 	reg_write16(LED4_ON_L, 0);
-	reg_read16(LED4_ON_L);
-	reg_write16(LED4_OFF_L, 4095);
-	reg_read16(LED4_OFF_L);
-
 	reg_write16(LED5_ON_L, 0);
-	reg_read16(LED5_ON_L);
+	reg_write16(LED4_OFF_L, 4095);
 	reg_write16(LED5_OFF_L, 4095);
-	reg_read16(LED5_OFF_L);
 }
 
-int Stop()
+void Stop()
 {
-	
-	//digitalWrite (0, HIGH) ;
-	//digitalWrite (2, HIGH) ;
-	
-	reg_write16(LED4_ON_L, 4095);
-	reg_read16(LED4_ON_L);
-	reg_write16(LED4_OFF_L, 4095);
-	reg_read16(LED4_OFF_L);
-
-	reg_write16(LED5_ON_L, 4095);
-	reg_read16(LED5_ON_L);
-	reg_write16(LED5_OFF_L, 4095);
-	reg_read16(LED5_OFF_L);
-
+	reg_write16(LED4_ON_L, 0);
+	reg_write16(LED5_ON_L, 0);
+	reg_write16(LED4_OFF_L, 0);
+	reg_write16(LED5_OFF_L, 0);
 }
 
 int main(void)
@@ -282,8 +247,10 @@ int main(void)
 	
 	wiringPiSetup();
 	
+	//
 	pinMode (0, OUTPUT) ;		// BCM GPIO17
 	pinMode (2, OUTPUT) ;		// BCM GPIO27
+	
 	unsigned short value=2047;
 	if((fd=open(I2C_DEV, O_RDWR))<0)
 	{
@@ -301,11 +268,11 @@ int main(void)
 
 	freq = 3000;
 
-	MoveForward(freq);
+	MoveForward(4095);
 	sleep(2);
 	Stop();
-	usleep(100000);
-	MoveBackward(freq);
+	usleep(100000);		// 100ms
+	MoveBackward(4095);
 	sleep(2);
 	Stop();
 	
