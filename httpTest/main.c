@@ -14,6 +14,9 @@
 #include <termios.h>
 
 #define	PORT		8080
+#define	LED		1  		// GPIO 18 
+
+extern "C" int captureImage(int fd);
 
 
 int kbhit()
@@ -69,12 +72,206 @@ void *gpiofunction(void *arg)
 	int ret =0;
 	return (void*)ret;
 }
-
+/*
 void *clnt_connection(void *arg)
 {
+	int clnt_sock = *((int*)arg);
+	int clnt_fd;
+	char reg_line[BUFSIZ];
+	FILE *clnt_read, *clnt_write;
+	
+	// 파일디스크립터를 FILE스트림으로 변환하기 위해
+	clnt_read   = fdopen(clnt_sock,"r");
+	clnt_write = fdopen(dup(clnt_sock), "w");
+	clnt_fd = clnt_sock;
+	
+	// 한줄의 문자열을 읽어서 reg_line 배열에 저장
+	fgets(reg_line, BUFSIZ, clnt_read);
+	fputs(reg_line,stdout);
+	sleep(5);
 	int ret =0;
 	return (void*)ret;
 }
+*/
+
+
+int ledControl(int gpio, int onoff)
+{
+    pinMode(gpio, OUTPUT) ;             /* 핀(Pin)의 모드 설정 */
+    digitalWrite(gpio, (onoff)?HIGH:LOW);   /* LED 켜고 끄기 */
+
+    return 0;
+}
+
+int sendData(int fd, FILE* fp, char *ct, char *file_name)
+{
+    /* 클라이언트로 보낼 성공에 대한 응답 메시지 */
+    char protocol[ ] = "HTTP/1.1 200 OK\r\n";
+    char server[ ] = "Server:Netscape-Enterprise/6.0\r\n";
+    char cnt_type[ ] = "Content-Type:text/html\r\n";
+    char end[ ] = "\r\n"; /* 응답 헤더의 끝은 항상 \r\n */
+    char buf[BUFSIZ];
+    int len;
+
+    fputs(protocol, fp);
+    fputs(server, fp);
+    fputs(cnt_type, fp);
+    fputs(end, fp);
+    fflush(fp);
+
+    /* 파일 이름이 capture.bmp인 경우 이미지를 캡처한다. */ 
+    if(!strcmp(file_name, "capture.bmp"))
+        captureImage(fd);
+
+    fd = open(file_name, O_RDWR); /* 파일을 연다. */
+    do {
+        len = read(fd, buf, BUFSIZ); /* 파일을 읽어서 클라이언트로 보낸다. */
+        fwrite(buf, len, sizeof(char), fp);
+    } while(len == BUFSIZ);
+
+    fflush(fp);
+
+    close(fd); /* 파일을 닫는다. */
+
+    return 0;
+}
+
+
+void sendOk(FILE* fp)
+{
+    /* 클라이언트에 보낼 성공에 대한 HTTP 응답 메시지 */
+    char protocol[ ] = "HTTP/1.1 200 OK\r\n";
+    char server[ ] = "Server: Netscape-Enterprise/6.0\r\n\r\n";
+
+    fputs(protocol, fp);
+    fputs(server, fp);
+    fflush(fp);
+}
+
+void sendError(FILE* fp)
+{
+    /* 클라이언트로 보낼 실패에 대한 HTTP 응답 메시지 */
+    char protocol[ ] = "HTTP/1.1 400 Bad Request\r\n";
+    char server[ ] = "Server: Netscape-Enterprise/6.0\r\n";
+    char cnt_len[ ] = "Content-Length:1024\r\n";
+    char cnt_type[ ] = "Content-Type:text/html\r\n\r\n";
+
+    /* 화면에 표시될 HTML의 내용 */
+    char content1[ ] = "<html><head><title>BAD Connection</tiitle></head>";
+    char content2[ ] = "<body><font size=+5>Bad Request</font></body></html>";
+
+    printf("send_error\n");
+    fputs(protocol, fp);
+    fputs(server, fp);
+    fputs(cnt_len, fp);
+    fputs(cnt_type, fp);
+    fputs(content1, fp);
+    fputs(content2, fp);
+    fflush(fp);
+}
+
+
+
+void *clnt_connection(void *arg)
+{
+     /* 스레드를 통해서 넘어온 arg를 int 형의 파일 디스크립터로 변환한다. */
+    int clnt_sock = *((int*)arg), clnt_fd;
+    FILE *clnt_read, *clnt_write;
+    char reg_line[BUFSIZ], reg_buf[BUFSIZ];
+    char method[10], ct[BUFSIZ], type[BUFSIZ];
+    char file_name[256], file_buf[256];
+    char* type_buf;
+    int i = 0, j = 0, len = 0;
+
+    /* 파일 디스크립터를 FILE 스트림으로 변환한다. */
+    clnt_read = fdopen(clnt_sock, "r");
+    clnt_write = fdopen(dup(clnt_sock), "w");
+    clnt_fd = clnt_sock;
+
+    /* 한 줄의 문자열을 읽어서 reg_line 변수에 저장한다. */
+    fgets(reg_line, BUFSIZ, clnt_read);
+
+    /* reg_line 변수에 문자열을 화면에 출력한다. */
+    fputs(reg_line, stdout);
+
+    /* ‘ ’ 문자로 reg_line을 구분해서 요청 라인의 내용(메소드)를 분리한다. */
+    strcpy(method, strtok(reg_line, " "));
+    if(strcmp(method, "POST") == 0) { /* POST 메소드일 경우를 처리한다. */
+        sendOk(clnt_write); /* 단순히 OK 메시지를 클라이언트로 보낸다. */
+        fclose(clnt_read);
+        fclose(clnt_write);
+
+        return (void*)NULL;
+    } else if(strcmp(method, "GET") != 0) { /* GET 메소드가 아닐 경우를 처리한다. */
+        sendError(clnt_write); /* 에러 메시지를 클라이언트로 보낸다. */
+        fclose(clnt_read);
+        fclose(clnt_write);
+
+        return (void*)NULL;
+    }
+
+    strcpy(file_name, strtok(NULL, " ")); /* 요청 라인에서 경로(path)를 가져온다. */
+    if(file_name[0] == '/') { /* 경로가 ‘/’로 시작될 경우 /를 제거한다. */
+        for(i = 0, j = 0; i < BUFSIZ; i++) {
+            if(file_name[0] == '/') j++;
+            file_name[i] = file_name[j++];
+            if(file_name[i+1] == '\0') break;
+        };
+    }
+
+    /* 라즈베리 파이를 제어하기 위한 HTML 코드를 분석해서 처리한다. */
+    if(strstr(file_name, "?") != NULL) {
+        char optLine[32];
+        char optStr[4][16];
+        char opt[8], var[8];
+        char* tok;
+        int i, count = 0;
+
+        strcpy(file_name, strtok(file_name, "?"));
+        strcpy(optLine, strtok(NULL, "?"));
+
+        /* 옵션을 분석한다. */
+        tok = strtok(optLine, "&");
+        while(tok != NULL) {
+            strcpy(optStr[count++], tok);
+            tok = strtok(NULL, "&");
+        };
+
+        /* 분석한 옵션을 처리한다. */
+        for(i = 0; i < count; i++) {
+            strcpy(opt, strtok(optStr[i], "="));
+            strcpy(var, strtok(NULL, "="));
+            printf("%s = %s\n", opt, var);
+            if(!strcmp(opt, "led") && !strcmp(var, "On")) { /* LED를 켠다. */
+                ledControl(LED, 1);
+            } else if(!strcmp(opt, "led") && !strcmp(var, "Off")) { /* LED를 끈다. */
+                ledControl(LED, 0);
+            }
+        };
+    }
+
+    /* 메시지 헤더를 읽어서 화면에 출력하고 나머지는 무시한다. */
+    do {
+        fgets(reg_line, BUFSIZ, clnt_read);
+        fputs(reg_line, stdout);
+        strcpy(reg_buf, reg_line);
+        type_buf = strchr(reg_buf, ':');
+    } while(strncmp(reg_line, "\r\n", 2)); /* 요청 헤더는 ‘\r\n’으로 끝난다. */
+
+    /* 파일의 이름을 이용해서 클라이언트로 파일의 내용을 보낸다. */
+    strcpy(file_buf, file_name);
+    sendData(clnt_fd, clnt_write, ct, file_name);
+
+    fclose(clnt_read); /* 파일의 스트림을 닫는다. */
+    fclose(clnt_write);
+
+    pthread_exit(0); /* 스레드를 종료시킨다. */
+
+    return (void*)NULL;
+}
+
+
+
 
 int main(int argc, char *argv[])
 {
@@ -87,13 +284,6 @@ int main(int argc, char *argv[])
 	int option;
 	pthread_t ptGpio;
 
-	//testKbhit();
-/*
-	if(argc!=2) {
-        printf("Usage : %s <port>\n", argv[0]);
-        exit(1);
-    }
-*/
 	wiringPiSetup();
 	
 	//pthread_create(&ptGpio, NULL, gpiofunction, NULL);
@@ -135,9 +325,10 @@ int main(int argc, char *argv[])
 			
 			clnt_addr_size = sizeof(clnt_addr);
 			clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
-			printf("Client IP : %s:%s\n", inet_ntoa(clnt_addr.sin_addr), ntohs(clnt_addr.sin_port));
+			printf("Client IP : %s\n", inet_ntoa(clnt_addr.sin_addr));
 			
-			//pthread_create(&thread, NULL, clnt_connection, &clnt_sock);
+			pthread_create(&thread, NULL, clnt_connection, &clnt_sock);
+			pthread_join(thread, 0);
 	};
 END:
 		printf("Good Bye!\n");
