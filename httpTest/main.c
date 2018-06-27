@@ -42,40 +42,9 @@ int kbhit()
 	return 0;
 }
 
-int main(void)
+int testKbhit(void)
 {
-	int i;
-	int serv_sock;
-	pthread_t thread;
-	struct sockaddr_in serv_addr, clnt_addr;
-	unsigned int clnt_addr_size;
-	
-	pthread_t ptGpio;
-	
-	wiringPiSetup();
-	/*
-	pthread_create(&ptGpio, NULL, gpiofunction, NULL);
-	
-	// 1. Socket()
-	serv_sock = socket(PF_INET, SOCK_STREAM, 0);
-	if(serv_sock == -1)
-	{
-		perror("Error : socket()");
-		return -1;
-	}
-	
-	// 2. bind
-	memset(&serv_add, 0, sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serv_addr.sin_port = htons(PORT);
-	if(bind(serv_sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr))==-1)
-	{
-		perror("Error:bind()");
-		return -1;
-	}
-	*/
-	i=0;
+	int	i=0;
 	while(1)
 	{
 		if(kbhit())
@@ -91,9 +60,88 @@ int main(void)
 			usleep(100);
 		}
 	}
+END:
+		printf("Good Bye!\n");	
+}
 
+void *gpiofunction(void *arg)
+{
+	int ret =0;
+	return (void*)ret;
+}
+
+void *clnt_connection(void *arg)
+{
+	int ret =0;
+	return (void*)ret;
+}
+
+int main(int argc, char *argv[])
+{
+	int i;
+	int serv_sock;
+	pthread_t thread;
+	struct sockaddr_in serv_addr, clnt_addr;
+	unsigned int clnt_addr_size;
+	socklen_t optlen;
+	int option;
+	pthread_t ptGpio;
+
+	//testKbhit();
+/*
+	if(argc!=2) {
+        printf("Usage : %s <port>\n", argv[0]);
+        exit(1);
+    }
+*/
+	wiringPiSetup();
+	
+	//pthread_create(&ptGpio, NULL, gpiofunction, NULL);
+	
+	// 1. Socket()
+	serv_sock = socket(PF_INET, SOCK_STREAM, 0);
+	if(serv_sock == -1)
+	{
+		perror("Error : socket()");
+		return -1;
+	}
+	optlen=sizeof(option);
+    option=TRUE;    
+    setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &option, optlen);	
+	
+	// 2. bind
+	memset(&serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serv_addr.sin_port = htons(PORT);
+	//serv_addr.sin_port = htons(atoi(argv[1]));
+	if(bind(serv_sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr))==-1)
+	{
+		perror("Error:bind()");
+		return -1;
+	}
+	
+	// 3. listen
+	// 최대 10대의 클라이언트의 동시접속을 처리가능하도록 큐를 생성한다.
+	if(listen(serv_sock, 10)==-1)
+	{
+		perror("Error:listen()");
+		return -1;  
+	}
+	
+	while(1)
+	{
+			int clnt_sock;
+			
+			clnt_addr_size = sizeof(clnt_addr);
+			clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
+			printf("Client IP : %s:%s\n", inet_ntoa(clnt_addr.sin_addr), ntohs(clnt_addr.sin_port));
+			
+			//pthread_create(&thread, NULL, clnt_connection, &clnt_sock);
+	};
 END:
 		printf("Good Bye!\n");
+			
 		return 0;
 }
 	
